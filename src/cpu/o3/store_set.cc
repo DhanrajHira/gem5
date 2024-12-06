@@ -32,6 +32,7 @@
 #include "base/logging.hh"
 #include "base/trace.hh"
 #include "cpu/inst_seq.hh"
+#include "cpu/o3/dyn_inst.hh"
 #include "debug/StoreSet.hh"
 
 namespace gem5
@@ -241,8 +242,10 @@ StoreSet::insertStore(Addr store_PC, InstSeqNum store_seq_num, ThreadID tid)
 }
 
 void
-StoreSet::checkInst(Addr PC, std::vector<InstSeqNum> &producing_stores)
+StoreSet::checkInst(const DynInstPtr &inst,
+        std::vector<InstSeqNum> &producing_stores)
 {
+    Addr PC = inst->pcState().instAddr();
     int index = calcIndex(PC);
 
     int inst_SSID;

@@ -36,6 +36,7 @@
 
 #include "base/types.hh"
 #include "cpu/inst_seq.hh"
+#include "cpu/o3/dyn_inst_ptr.hh"
 
 namespace gem5
 {
@@ -100,7 +101,8 @@ class StoreSet
      * any store.  @return Returns the sequence number of the store
      * instruction this PC is dependent upon.  Returns 0 if none.
      */
-    void checkInst(Addr PC, std::vector<InstSeqNum> &producing_stores);
+    void checkInst(const DynInstPtr &inst,
+            std::vector<InstSeqNum> &producing_stores);
 
     /** Records this PC/sequence number as issued. */
     void issued(Addr issued_PC, InstSeqNum issued_seq_num, bool is_store);

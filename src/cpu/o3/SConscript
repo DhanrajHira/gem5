@@ -54,6 +54,7 @@ if env['CONF']['BUILD_ISA']:
     Source('rob.cc')
     Source('scoreboard.cc')
     Source('store_set.cc')
+    Source('store_wait_table.cc')
     Source('thread_context.cc')
     Source('thread_state.cc')
 
@@ -68,6 +69,7 @@ if env['CONF']['BUILD_ISA']:
     DebugFlag('Rename')
     DebugFlag('Scoreboard')
     DebugFlag('StoreSet')
+    DebugFlag('StoreWaitTable')
     DebugFlag('Writeback')
 
     CompoundFlag('O3CPUAll', [ 'Fetch', 'Decode', 'Rename', 'IEW', 'Commit',

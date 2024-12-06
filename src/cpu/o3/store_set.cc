@@ -31,6 +31,7 @@
 #include "base/intmath.hh"
 #include "base/logging.hh"
 #include "base/trace.hh"
+#include "cpu/inst_seq.hh"
 #include "debug/StoreSet.hh"
 
 namespace gem5
@@ -239,8 +240,8 @@ StoreSet::insertStore(Addr store_PC, InstSeqNum store_seq_num, ThreadID tid)
     }
 }
 
-InstSeqNum
-StoreSet::checkInst(Addr PC)
+void
+StoreSet::checkInst(Addr PC, std::vector<InstSeqNum> &producing_stores)
 {
     int index = calcIndex(PC);
 
@@ -253,7 +254,7 @@ StoreSet::checkInst(Addr PC)
                 PC, index);
 
         // Return 0 if there's no valid entry.
-        return 0;
+        return;
     } else {
         inst_SSID = SSIT[index];
 
@@ -264,12 +265,12 @@ StoreSet::checkInst(Addr PC)
             DPRINTF(StoreSet, "Inst %#x with index %i and SSID %i had no "
                     "dependency\n", PC, index, inst_SSID);
 
-            return 0;
+            return;
         } else {
             DPRINTF(StoreSet, "Inst %#x with index %i and SSID %i had LFST "
                     "inum of %i\n", PC, index, inst_SSID, LFST[inst_SSID]);
-
-            return LFST[inst_SSID];
+            producing_stores.push_back(LFST[inst_SSID]);
+            return;
         }
     }
 }

@@ -220,9 +220,7 @@ MemDepUnit::insert(const DynInstPtr &inst)
                                 std::begin(storeBarrierSNs),
                                 std::end(storeBarrierSNs));
     } else {
-        InstSeqNum dep = depPred.checkInst(inst->pcState().instAddr());
-        if (dep != 0)
-            producing_stores.push_back(dep);
+        depPred.checkInst(inst->pcState().instAddr(), producing_stores);
     }
 
     std::vector<MemDepEntryPtr> store_entries;

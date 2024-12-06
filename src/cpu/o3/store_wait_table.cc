@@ -4,6 +4,7 @@
 #include "base/logging.hh"
 #include "base/trace.hh"
 #include "cpu/inst_seq.hh"
+#include "cpu/o3/dyn_inst.hh"
 #include "debug/StoreWaitTable.hh"
 
 namespace gem5

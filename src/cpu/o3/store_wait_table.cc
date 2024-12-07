@@ -75,6 +75,9 @@ void StoreWaitTable::insertStore(Addr store_PC, InstSeqNum store_seq_num,
 void StoreWaitTable::checkInst(const DynInstPtr &inst,
         std::vector<InstSeqNum> &producing_stores)
 {
+    // For store wait table, we don't introduce dependencies between stores
+    if (!inst->isLoad())
+        return;
     InstSeqNum load_seq_num = inst->seqNum;
     for (InstSeqNum store_seq_num : unissued_stores) {
         if (load_seq_num > store_seq_num)

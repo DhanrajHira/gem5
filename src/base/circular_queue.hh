@@ -73,7 +73,7 @@ class CircularQueue
 
     using reference = typename std::vector<T>::reference;
     using const_reference = typename std::vector<T>::const_reference;
-    const size_t _capacity;
+    size_t _capacity;
     size_t _size = 0;
     size_t _head = 1;
 

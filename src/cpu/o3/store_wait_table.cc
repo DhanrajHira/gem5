@@ -69,6 +69,7 @@ StoreWaitTable::insertLoad(Addr load_PC, InstSeqNum load_seq_num)
 void StoreWaitTable::insertStore(Addr store_PC, InstSeqNum store_seq_num,
         ThreadID tid)
 {
+    checkClear();
     unissued_stores.insert(store_seq_num);
 }
 
@@ -80,8 +81,12 @@ void StoreWaitTable::checkInst(const DynInstPtr &inst,
         return;
     InstSeqNum load_seq_num = inst->seqNum;
     for (InstSeqNum store_seq_num : unissued_stores) {
-        if (load_seq_num > store_seq_num)
+        if (load_seq_num > store_seq_num) {
+        DPRINTF(StoreWaitTable,
+                "Predicted load depends on store with seqnum = %lu\n",
+                store_seq_num);
             producing_stores.push_back(store_seq_num);
+        }
     }
 }
 
@@ -91,8 +96,10 @@ void StoreWaitTable::issued(Addr issued_PC, InstSeqNum issued_seq_num,
     if (!is_store)
         return;
     SeqNumMapIt unissued_store = unissued_stores.find(issued_seq_num);
-    if (unissued_store != unissued_stores.end())
+    if (unissued_store != unissued_stores.end()) {
+        DPRINTF(StoreWaitTable, "Store with PC=%#x issued.\n", issued_PC);
         unissued_stores.erase(unissued_store);
+    }
 }
 
 void
@@ -100,15 +107,11 @@ StoreWaitTable::squash(InstSeqNum squashed_num, ThreadID tid)
 {
     DPRINTF(StoreWaitTable, "StoreWaitTable: Squashing until inum %i\n",
             squashed_num);
-
-    auto store_itr = unissued_stores.begin();
-    auto store_itr_end = unissued_stores.end();
-
     //@todo:Fix to only delete from correct thread
-    while (store_itr != store_itr_end) {
-        if (*store_itr < squashed_num)
-            unissued_stores.erase(store_itr++);
-    }
+    auto erase_until = unissued_stores.lower_bound(squashed_num + 1);
+    unissued_stores.erase(unissued_stores.begin(), erase_until);
+    DPRINTF(StoreWaitTable, "StoreWaitTable: Squashed until %i\n",
+            squashed_num);
 }
 
 void

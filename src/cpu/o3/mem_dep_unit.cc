@@ -56,12 +56,13 @@ MemDepUnit::MemDepUnit() : iqPtr(NULL), stats(nullptr) {}
 
 MemDepUnit::MemDepUnit(const BaseO3CPUParams &params)
     : _name(params.name + ".memdepunit"),
-      depPred(params.store_set_clear_period, params.SSITSize,
-              params.LFSTSize),
+      depPred(params.store_set_clear_period, params.LQEntries,
+              params.SQEntries),
       iqPtr(NULL),
       stats(nullptr)
 {
-    DPRINTF(MemDepUnit, "Creating MemDepUnit object.\n");
+    DPRINTF(MemDepUnit, "Creating MemDepUnit object which clear_period=%du.\n",
+            params.store_set_clear_period);
 }
 
 MemDepUnit::~MemDepUnit()
@@ -91,13 +92,15 @@ MemDepUnit::~MemDepUnit()
 void
 MemDepUnit::init(const BaseO3CPUParams &params, ThreadID tid, CPU *cpu)
 {
-    DPRINTF(MemDepUnit, "Creating MemDepUnit %i object.\n",tid);
+    DPRINTF(MemDepUnit,
+            "Creating MemDepUnit %i object with clear period %du\n",
+            tid, params.store_set_clear_period);
 
     _name = csprintf("%s.memDep%d", params.name, tid);
     id = tid;
 
-    depPred.init(params.store_set_clear_period, params.SSITSize,
-            params.LFSTSize);
+    depPred.init(params.store_set_clear_period, params.LQEntries,
+            params.SQEntries);
 
     std::string stats_group_name = csprintf("MemDepUnit__%i", tid);
     cpu->addStatGroup(stats_group_name.c_str(), &stats);
@@ -187,7 +190,8 @@ MemDepUnit::insertBarrierSN(const DynInstPtr &barr_inst)
 }
 
 void
-MemDepUnit::insert(const DynInstPtr &inst)
+MemDepUnit::insert(const DynInstPtr &inst, size_t sq_head_idx,
+        size_t sq_tail_idx)
 {
     ThreadID tid = inst->threadNumber;
 
@@ -220,7 +224,7 @@ MemDepUnit::insert(const DynInstPtr &inst)
                                 std::begin(storeBarrierSNs),
                                 std::end(storeBarrierSNs));
     } else {
-        depPred.checkInst(inst, producing_stores);
+        depPred.checkInst(inst, sq_head_idx, sq_tail_idx, producing_stores);
     }
 
     std::vector<MemDepEntryPtr> store_entries;
@@ -265,7 +269,7 @@ MemDepUnit::insert(const DynInstPtr &inst)
         inst->clearCanIssue();
 
         // Add this instruction to the list of dependents.
-        for (auto store_entry : store_entries)
+        for (auto &store_entry : store_entries)
             store_entry->dependInsts.push_back(inst_entry);
 
         inst_entry->memDeps = store_entries.size();
@@ -567,14 +571,13 @@ MemDepUnit::squash(const InstSeqNum &squashed_num, ThreadID tid)
 
 void
 MemDepUnit::violation(const DynInstPtr &store_inst,
-        const DynInstPtr &violating_load)
+        const DynInstPtr &violating_load, size_t cur_SQ_tail)
 {
     DPRINTF(MemDepUnit, "Passing violating PCs to store sets,"
             " load: %#x, store: %#x\n", violating_load->pcState().instAddr(),
             store_inst->pcState().instAddr());
     // Tell the memory dependence unit of the violation.
-    depPred.violation(store_inst->pcState().instAddr(),
-            violating_load->pcState().instAddr());
+    depPred.violation(store_inst, violating_load, cur_SQ_tail);
 }
 
 void

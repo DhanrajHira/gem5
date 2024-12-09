@@ -1041,7 +1041,9 @@ IEW::dispatchInsts(ThreadID tid)
         // If the instruction queue is not full, then add the
         // instruction.
         if (add_to_iq) {
-            instQueue.insert(inst);
+            auto store_head = ldstQueue.getStoreHead(tid);
+            auto store_tail = ldstQueue.getStoreTail(tid);
+            instQueue.insert(inst, store_head, store_tail);
         }
 
         insts_to_dispatch.pop();
@@ -1294,7 +1296,8 @@ IEW::executeInsts()
                 fetchRedirect[tid] = true;
 
                 // Tell the instruction queue that a violation has occured.
-                instQueue.violation(inst, violator);
+                instQueue.violation(inst, violator,
+                        ldstQueue.getStoreTail(tid));
 
                 // Squash.
                 squashDueToMemOrder(violator, tid);

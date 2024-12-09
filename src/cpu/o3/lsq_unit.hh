@@ -555,6 +555,10 @@ class LSQUnit
 
     /** Returns the index of the head store instruction. */
     int getStoreHead() { return storeQueue.head(); }
+
+    /** Returns the index of the head store instruction. */
+    int getStoreTail() { return storeQueue.tail(); }
+
     /** Returns the sequence number of the head store instruction. */
     InstSeqNum getStoreHeadSeqNum();
 

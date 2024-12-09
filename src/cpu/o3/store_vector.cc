@@ -28,13 +28,16 @@
 
 #include "cpu/o3/store_vector.hh"
 
-#include <algorithm>
 #include <cassert>
+#include <cstddef>
 
 #include "base/intmath.hh"
 #include "base/logging.hh"
+#include "base/trace.hh"
 #include "cpu/inst_seq.hh"
 #include "cpu/o3/dyn_inst.hh"
+#include "cpu/o3/dyn_inst_ptr.hh"
+#include "debug/StoreVector.hh"
 
 namespace gem5
 {
@@ -42,9 +45,10 @@ namespace gem5
 namespace o3
 {
 
-StoreVector::StoreVector(uint64_t clear_period, int _SSIT_size, int _LFST_size)
+StoreVector::StoreVector(uint64_t clear_period,
+        int load_queue_size, int store_queue_size)
 {
-    init(clear_period, _SSIT_size, _LFST_size);
+    init(clear_period, load_queue_size, store_queue_size);
 }
 
 StoreVector::~StoreVector()
@@ -52,43 +56,59 @@ StoreVector::~StoreVector()
 }
 
 void
-StoreVector::init(uint64_t clear_period, int _SSIT_size, int _LFST_size)
+StoreVector::init(uint64_t clear_period,
+        int load_queue_size, int store_queue_size)
 {
-    clear_period = clear_period;
-    if (!isPowerOf2(_SSIT_size))
-        fatal("SVT Size (set by SSIT size) must be a power of 2!\n");
-    SVTSize = _SSIT_size;
-    SVTVectorSize = _LFST_size;
+    clearPeriod = clear_period;
+    if (!isPowerOf2(load_queue_size))
+        fatal("StoreVector requires that LQSize be a power of 2\n");
+    SVTSize = load_queue_size;
+    SVTVectorSize = store_queue_size;
     SVT.reserve(SVTSize);
-    for (auto i = 0; i < SVTSize; i++)
-        SVT.push_back(std::vector<bool>(_LFST_size));
+    for (auto i = 0; i < load_queue_size; i++)
+        SVT.push_back(std::vector<char>(store_queue_size));
     memOpsPred = 0;
-    storeAddrs = CircularQueue<Addr>(_LFST_size);
-    storeSeqNums = CircularQueue<Addr>(_LFST_size);
 }
-std::vector<bool> &StoreVector::getStoreVector(Addr load_PC) {
-     auto SVT_idx = (load_PC & (SVTSize - 1));
-     assert(SVT_idx < SVTSize);
-     return SVT[SVT_idx];
+size_t StoreVector::getSVIdx(Addr load_PC)
+{
+    return (load_PC & (SVTSize - 1));
 }
 
 void
-StoreVector::violation(Addr store_PC, Addr load_PC)
+StoreVector::violation(DynInstPtr store, DynInstPtr violating_load,
+        size_t cur_SQ_tail)
 {
-    auto violating_store_iter = std::find(
-            storeAddrs.begin(), storeAddrs.end(), store_PC);
-    if (violating_store_iter == storeAddrs.end())
-        return;
-
-    auto violating_store_offset = violating_store_iter - storeAddrs.begin();
-    assert(violating_store_offset < SVTVectorSize);
-    auto store_vector = getStoreVector(load_PC);
-    store_vector[violating_store_offset] = true;
+    auto violating_store_offset = cur_SQ_tail - store->sqIdx;
+    auto store_PC = store->pcState().instAddr();
+    auto load_PC = violating_load->pcState().instAddr();
+    DPRINTF(StoreVector, "Store with PC=%#x violated load with PC=%#x\n",
+            store_PC, load_PC);
+    DPRINTF(StoreVector,
+            "violating store is at offset %lu from the most recent store\n",
+            violating_store_offset);
+    if (violating_store_offset >= SVTVectorSize)
+        fatal("violating_store_offset >= SVTVectorSize");
+    auto SV_index = getSVIdx(load_PC);
+    auto &store_vector = SVT[SV_index];
+    store_vector[violating_store_offset] = 1;
+    // DPRINTF(StoreVector, "Bit %lu @ %p in SV set to %d\n",
+    //         violating_store_offset, &store_vector[violating_store_offset],
+    //         store_vector[violating_store_offset]);
+    // for (int i = 0; i < SVTVectorSize; i++)
+    //     store_vector[i] = 1;
 }
 
 void
 StoreVector::checkClear()
 {
+    memOpsPred++;
+    if (memOpsPred > clearPeriod) {
+        DPRINTF(StoreVector,
+                "Wiping predictor state beacuse %d ld/st executed\n",
+                clearPeriod);
+        memOpsPred = 0;
+        clear();
+    }
 }
 
 void
@@ -102,22 +122,53 @@ StoreVector::insertLoad(Addr load_PC, InstSeqNum load_seq_num)
 void
 StoreVector::insertStore(Addr store_PC, InstSeqNum store_seq_num, ThreadID tid)
 {
-    storeAddrs.push_back(store_PC);
-    storeSeqNums.push_back(store_seq_num);
+    checkClear();
+    // Do nothing
 }
 
 void
-StoreVector::checkInst(const DynInstPtr &inst,
-        std::vector<InstSeqNum> &producing_stores)
+StoreVector::checkInst(const DynInstPtr &inst, size_t head_idx,
+        size_t tail_idx, std::vector<InstSeqNum> &producing_stores)
 {
-    if (inst->isLoad())
+    if (!inst->isLoad())
         return;
-    auto SV = getStoreVector(inst->pcState().instAddr());
-    for (auto i = 0; i < SVTVectorSize; i++) {
+
+    auto load_PC = inst->pcState().instAddr();
+    // DPRINTF(StoreVector,
+    //         "Checking load with PC=%#x for dependencies\n", load_PC);
+
+    // Nothing in the SQ, no point in predicting.
+    if (head_idx > tail_idx) {
+        // DPRINTF(StoreVector, "Skipping because SQ is empty\n");
+        return;
+    }
+
+    // DPRINTF(StoreVector,
+    //         "Got headIdx=%lu and tail=%lu for SQ\n", head_idx, tail_idx);
+    assert(inst->sqIdx == tail_idx);
+
+    // Iter from tail to head, check the vector to see if it is dependent.
+    auto sq_entry = inst->sqIt;  // This is the end iter
+    --sq_entry; // we need to get the iter to the last element.
+    auto SV_idx = getSVIdx(load_PC);
+    const auto &SV = SVT[SV_idx];
+    for (auto i = 0; i < SVTVectorSize && (tail_idx > head_idx);
+            i++, --sq_entry, --tail_idx) {
         bool does_depend = SV[i];
-        if (!does_depend)
+        if (!does_depend) {
+            // DPRINTF(StoreVector,
+            //         "Skipping %d because SV[%d] @ %p = %d\n",
+            //         i, i, &SV[i], SV[i]);
             continue;
-        producing_stores.push_back(storeSeqNums[i]);
+        }
+        DPRINTF(StoreVector, "Load dependent on store with offset %d\n", i);
+        InstSeqNum producing_store = sq_entry->instruction()->seqNum;
+        Addr producing_addr = sq_entry->instruction()->pcState().instAddr();
+        DPRINTF(StoreVector,
+                "Predicting that load with PC=%#x"
+                "depends on store with seqNum=%lu and PC=%#x\n",
+                load_PC, producing_store, producing_addr);
+        producing_stores.push_back(producing_store);
     }
 }
 
@@ -130,22 +181,15 @@ StoreVector::issued(Addr issued_PC, InstSeqNum issued_seq_num, bool is_store)
 void
 StoreVector::squash(InstSeqNum squashed_num, ThreadID tid)
 {
-    auto seq_num_iter = storeSeqNums.begin();
-    auto seq_num_end = storeSeqNums.end();
-    auto addr_iter = storeAddrs.begin();
-    while (seq_num_iter != seq_num_end) {
-        if (*seq_num_iter > squashed_num)
-            break;
-        *(seq_num_iter++) = 0;
-        *(addr_iter++) = 0;
-    }
+    // do nothing
 }
 
 void
 StoreVector::clear()
 {
-    storeAddrs.flush();
-    storeSeqNums.flush();
+    for (std::vector<char> &SV : SVT)
+        for (int i = 0; i < SVTVectorSize; ++i)
+            SV[i] = 0;
 }
 
 void

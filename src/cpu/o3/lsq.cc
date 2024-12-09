@@ -328,6 +328,13 @@ LSQ::getStoreHead(ThreadID tid)
     return thread.at(tid).getStoreHead();
 }
 
+
+int
+LSQ::getStoreTail(ThreadID tid)
+{
+    return thread.at(tid).getStoreTail();
+}
+
 InstSeqNum
 LSQ::getStoreHeadSeqNum(ThreadID tid)
 {

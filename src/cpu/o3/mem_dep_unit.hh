@@ -121,7 +121,8 @@ class MemDepUnit
     void setIQ(InstructionQueue *iq_ptr);
 
     /** Inserts a memory instruction. */
-    void insert(const DynInstPtr &inst);
+    void insert(const DynInstPtr &inst, size_t sq_head_idx,
+            size_t sq_tail_idx);
 
     /** Inserts a non-speculative memory instruction. */
     void insertNonSpec(const DynInstPtr &inst);
@@ -153,7 +154,8 @@ class MemDepUnit
 
     /** Indicates an ordering violation between a store and a younger load. */
     void violation(const DynInstPtr &store_inst,
-                   const DynInstPtr &violating_load);
+                   const DynInstPtr &violating_load,
+                   size_t cur_SQ_tail);
 
     /** Issues the given instruction */
     void issue(const DynInstPtr &inst);

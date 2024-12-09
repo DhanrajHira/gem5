@@ -328,6 +328,7 @@ LSQUnit::insertLoad(const DynInstPtr &load_inst)
     loadQueue.advance_tail();
 
     load_inst->sqIt = storeQueue.end();
+    load_inst->sqIdx = storeQueue.tail();
 
     assert(!loadQueue.back().valid());
     loadQueue.back().set(load_inst);

@@ -57,17 +57,17 @@ class StoreVector
     StoreVector() { };
 
     /** Creates store set predictor with given table sizes. */
-    StoreVector(uint64_t clear_period, int SSIT_size, int LFST_size);
+    StoreVector(uint64_t clear_period, int _SVT_size, int _SVT_vector_size);
 
     /** Default destructor. */
     ~StoreVector();
 
     /** Initializes the store set predictor with the given table sizes. */
-    void init(uint64_t clear_period, int SSIT_size, int LFST_size);
+    void init(uint64_t clear_period, int _SVT_size, int _SVT_vector_size);
 
     /** Records a memory ordering violation between the younger load
      * and the older store. */
-    void violation(Addr store_PC, Addr load_PC);
+    void violation(DynInstPtr store, DynInstPtr load, size_t cur_SQ_tail);
 
     /** Clears the store set predictor every so often so that all the
      * entries aren't used and stores are constantly predicted as
@@ -88,7 +88,7 @@ class StoreVector
      * any store.  @return Returns the sequence number of the store
      * instruction this PC is dependent upon.  Returns 0 if none.
      */
-    void checkInst(const DynInstPtr &inst,
+    void checkInst(const DynInstPtr &inst, size_t head_idx, size_t tail_idx,
             std::vector<InstSeqNum> &producing_stores);
 
     /** Records this PC/sequence number as issued. */
@@ -104,13 +104,9 @@ class StoreVector
     void dump();
 
   private:
-    std::vector<bool> &getStoreVector(Addr load_PC);
+    size_t getSVIdx(Addr load_PC);
 
-    CircularQueue<Addr> storeAddrs;
-
-    CircularQueue<InstSeqNum> storeSeqNums;
-
-    std::vector<std::vector<bool>> SVT;
+    std::vector<std::vector<char>> SVT;
 
     /** Number of loads/stores to process before wiping predictor so all
      * entries don't get saturated

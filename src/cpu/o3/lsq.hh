@@ -737,6 +737,9 @@ class LSQ
     /** Returns the head index of the store queue. */
     int getStoreHead(ThreadID tid);
 
+    /** Returns the tail index of the store queue. */
+    int getStoreTail(ThreadID tid);
+
     /** Returns the sequence number of the head of the store queue. */
     InstSeqNum getStoreHeadSeqNum(ThreadID tid);
 

@@ -48,6 +48,7 @@
 #include "cpu/o3/dyn_inst.hh"
 #include "cpu/o3/fu_pool.hh"
 #include "cpu/o3/limits.hh"
+#include "cpu/o3/lsq_unit.hh"
 #include "debug/IQ.hh"
 #include "enums/OpClass.hh"
 #include "params/BaseO3CPU.hh"
@@ -560,7 +561,8 @@ InstructionQueue::hasReadyInsts()
 }
 
 void
-InstructionQueue::insert(const DynInstPtr &new_inst)
+InstructionQueue::insert(const DynInstPtr &new_inst,
+        size_t sq_head_idx, size_t sq_tail_idx)
 {
     if (new_inst->isFloating()) {
         iqIOStats.fpInstQueueWrites++;
@@ -592,7 +594,8 @@ InstructionQueue::insert(const DynInstPtr &new_inst)
     addToProducers(new_inst);
 
     if (new_inst->isMemRef()) {
-        memDepUnit[new_inst->threadNumber].insert(new_inst);
+        memDepUnit[new_inst->threadNumber].insert(new_inst,
+                sq_head_idx, sq_tail_idx);
     } else {
         addIfReady(new_inst);
     }
@@ -1159,10 +1162,10 @@ InstructionQueue::getBlockedMemInstToExecute()
 
 void
 InstructionQueue::violation(const DynInstPtr &store,
-        const DynInstPtr &faulting_load)
+        const DynInstPtr &faulting_load, size_t curSQTail)
 {
     iqIOStats.intInstQueueWrites++;
-    memDepUnit[store->threadNumber].violation(store, faulting_load);
+    memDepUnit[store->threadNumber].violation(store, faulting_load, curSQTail);
 }
 
 void

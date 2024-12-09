@@ -121,6 +121,7 @@ StoreSet::init(uint64_t clear_period, int _SSIT_size, int _LFST_size)
 void
 StoreSet::violation(Addr store_PC, Addr load_PC)
 {
+    return;
     int load_index = calcIndex(load_PC);
     int store_index = calcIndex(store_PC);
 
@@ -214,6 +215,7 @@ StoreSet::insertLoad(Addr load_PC, InstSeqNum load_seq_num)
 void
 StoreSet::insertStore(Addr store_PC, InstSeqNum store_seq_num, ThreadID tid)
 {
+    return;
     int index = calcIndex(store_PC);
 
     int store_SSID;
@@ -245,6 +247,7 @@ void
 StoreSet::checkInst(const DynInstPtr &inst,
         std::vector<InstSeqNum> &producing_stores)
 {
+    return;
     Addr PC = inst->pcState().instAddr();
     int index = calcIndex(PC);
 
@@ -281,6 +284,7 @@ StoreSet::checkInst(const DynInstPtr &inst,
 void
 StoreSet::issued(Addr issued_PC, InstSeqNum issued_seq_num, bool is_store)
 {
+    return;
     // This only is updated upon a store being issued.
     if (!is_store) {
         return;
@@ -318,6 +322,7 @@ StoreSet::issued(Addr issued_PC, InstSeqNum issued_seq_num, bool is_store)
 void
 StoreSet::squash(InstSeqNum squashed_num, ThreadID tid)
 {
+    return;
     DPRINTF(StoreSet, "StoreSet: Squashing until inum %i\n",
             squashed_num);
 
@@ -348,6 +353,7 @@ StoreSet::squash(InstSeqNum squashed_num, ThreadID tid)
 void
 StoreSet::clear()
 {
+    return;
     for (int i = 0; i < SSITSize; ++i) {
         validSSIT[i] = false;
     }

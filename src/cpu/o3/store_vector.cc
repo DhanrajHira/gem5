@@ -81,7 +81,7 @@ StoreVector::violation(DynInstPtr store, DynInstPtr violating_load,
     auto violating_store_offset = cur_SQ_tail - store->sqIdx;
     auto store_PC = store->pcState().instAddr();
     auto load_PC = violating_load->pcState().instAddr();
-    DPRINTF(StoreVector, "Store with PC=%#x violated load with PC=%#x\n",
+    DPRINTF(StoreVector, "store(PC=%#x) violated load(PC=%#x)\n",
             store_PC, load_PC);
     DPRINTF(StoreVector,
             "violating store is at offset %lu from the most recent store\n",
@@ -161,13 +161,12 @@ StoreVector::checkInst(const DynInstPtr &inst, size_t head_idx,
             //         i, i, &SV[i], SV[i]);
             continue;
         }
-        DPRINTF(StoreVector, "Load dependent on store with offset %d\n", i);
         InstSeqNum producing_store = sq_entry->instruction()->seqNum;
         Addr producing_addr = sq_entry->instruction()->pcState().instAddr();
         DPRINTF(StoreVector,
-                "Predicting that load with PC=%#x"
-                "depends on store with seqNum=%lu and PC=%#x\n",
-                load_PC, producing_store, producing_addr);
+                "Predicting that load(PC=%#x) "
+                "depends on store(seqNum=%lu,PC=%#x,offset=%d)\n",
+                load_PC, producing_store, producing_addr, i);
         producing_stores.push_back(producing_store);
     }
 }

@@ -42,6 +42,8 @@ StoreWaitTable::violation(Addr store_PC, Addr load_PC)
 {
     // Start keeping track of this load to not let it issue OOO
     // with all the older stores.
+    DPRINTF(StoreWaitTable, "load(PC=%#x) violated store(PC=%#x)\n",
+            load_PC, store_PC);
     known_violating_loads.insert(load_PC);
 }
 
@@ -79,12 +81,18 @@ void StoreWaitTable::checkInst(const DynInstPtr &inst,
     // For store wait table, we don't introduce dependencies between stores
     if (!inst->isLoad())
         return;
+
+    // This is not a known violator.
+    if (known_violating_loads.find(inst->pcState().instAddr())
+            == known_violating_loads.end())
+        return;
+
     InstSeqNum load_seq_num = inst->seqNum;
     for (InstSeqNum store_seq_num : unissued_stores) {
         if (load_seq_num > store_seq_num) {
         DPRINTF(StoreWaitTable,
-                "Predicted load depends on store with seqnum = %lu\n",
-                store_seq_num);
+                "Predicted load(PC=%#x,seq=%lu) depends on store(seq=%lu)\n",
+                inst->pcState().instAddr(), inst->seqNum, store_seq_num);
             producing_stores.push_back(store_seq_num);
         }
     }
@@ -96,22 +104,16 @@ void StoreWaitTable::issued(Addr issued_PC, InstSeqNum issued_seq_num,
     if (!is_store)
         return;
     SeqNumMapIt unissued_store = unissued_stores.find(issued_seq_num);
-    if (unissued_store != unissued_stores.end()) {
-        DPRINTF(StoreWaitTable, "Store with PC=%#x issued.\n", issued_PC);
+    if (unissued_store != unissued_stores.end())
         unissued_stores.erase(unissued_store);
-    }
 }
 
 void
 StoreWaitTable::squash(InstSeqNum squashed_num, ThreadID tid)
 {
-    DPRINTF(StoreWaitTable, "StoreWaitTable: Squashing until inum %i\n",
-            squashed_num);
     //@todo:Fix to only delete from correct thread
     auto erase_until = unissued_stores.lower_bound(squashed_num + 1);
     unissued_stores.erase(unissued_stores.begin(), erase_until);
-    DPRINTF(StoreWaitTable, "StoreWaitTable: Squashed until %i\n",
-            squashed_num);
 }
 
 void

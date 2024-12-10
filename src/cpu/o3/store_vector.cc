@@ -69,6 +69,7 @@ StoreVector::init(uint64_t clear_period,
         SVT.push_back(std::vector<char>(store_queue_size));
     memOpsPred = 0;
 }
+
 size_t StoreVector::getSVIdx(Addr load_PC)
 {
     return (load_PC & (SVTSize - 1));
@@ -78,17 +79,17 @@ void
 StoreVector::violation(DynInstPtr store, DynInstPtr violating_load,
         size_t cur_SQ_tail)
 {
+    assert(store->isStore());
     auto violating_store_offset = cur_SQ_tail - store->sqIdx;
     auto store_PC = store->pcState().instAddr();
     auto load_PC = violating_load->pcState().instAddr();
-    DPRINTF(StoreVector, "store(PC=%#x) violated load(PC=%#x)\n",
-            store_PC, load_PC);
-    DPRINTF(StoreVector,
-            "violating store is at offset %lu from the most recent store\n",
-            violating_store_offset);
+    auto SV_index = getSVIdx(load_PC);
+    DPRINTF(StoreVector, "load(PC=%#x,idx=%lu,seqNum=%lu) violated "
+            "store(PC=%#x,offset=%lu,seqNum=%lu)\n",
+            load_PC, SV_index, violating_load->seqNum,
+            store_PC, violating_store_offset, store->seqNum);
     if (violating_store_offset >= SVTVectorSize)
         fatal("violating_store_offset >= SVTVectorSize");
-    auto SV_index = getSVIdx(load_PC);
     auto &store_vector = SVT[SV_index];
     store_vector[violating_store_offset] = 1;
     // DPRINTF(StoreVector, "Bit %lu @ %p in SV set to %d\n",
@@ -134,23 +135,25 @@ StoreVector::checkInst(const DynInstPtr &inst, size_t head_idx,
         return;
 
     auto load_PC = inst->pcState().instAddr();
+    auto SV_idx = getSVIdx(load_PC);
     // DPRINTF(StoreVector,
     //         "Checking load with PC=%#x for dependencies\n", load_PC);
 
     // Nothing in the SQ, no point in predicting.
     if (head_idx > tail_idx) {
-        // DPRINTF(StoreVector, "Skipping because SQ is empty\n");
+        DPRINTF(StoreVector, "Skipping load(PC=%#x,idx=%lu) as SQ "
+                "is empty\n", load_PC, SV_idx);
         return;
     }
 
     // DPRINTF(StoreVector,
     //         "Got headIdx=%lu and tail=%lu for SQ\n", head_idx, tail_idx);
-    assert(inst->sqIdx == tail_idx);
+    // assert(inst->sqIdx == tail_idx);
 
     // Iter from tail to head, check the vector to see if it is dependent.
     auto sq_entry = inst->sqIt;  // This is the end iter
     --sq_entry; // we need to get the iter to the last element.
-    auto SV_idx = getSVIdx(load_PC);
+    assert(sq_entry.idx() == tail_idx);
     const auto &SV = SVT[SV_idx];
     for (auto i = 0; i < SVTVectorSize && (tail_idx > head_idx);
             i++, --sq_entry, --tail_idx) {
@@ -164,9 +167,10 @@ StoreVector::checkInst(const DynInstPtr &inst, size_t head_idx,
         InstSeqNum producing_store = sq_entry->instruction()->seqNum;
         Addr producing_addr = sq_entry->instruction()->pcState().instAddr();
         DPRINTF(StoreVector,
-                "Predicting that load(PC=%#x) "
-                "depends on store(seqNum=%lu,PC=%#x,offset=%d)\n",
-                load_PC, producing_store, producing_addr, i);
+                "Predicting that load(PC=%#x,idx=%lu,seqNum=%lu) "
+                "depends on store(PC=%#x,offset=%d,seqNum=%lu)\n",
+                load_PC, SV_idx, inst->seqNum, producing_addr, i,
+                producing_store);
         producing_stores.push_back(producing_store);
     }
 }

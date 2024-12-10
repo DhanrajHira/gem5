@@ -121,6 +121,8 @@ StoreSet::init(uint64_t clear_period, int _SSIT_size, int _LFST_size)
 void
 StoreSet::violation(Addr store_PC, Addr load_PC)
 {
+    DPRINTF(StoreSet, "load(PC=%#x) violated store(PC=%#x)\n",
+            load_PC, store_PC);
     int load_index = calcIndex(load_PC);
     int store_index = calcIndex(store_PC);
 
@@ -236,8 +238,9 @@ StoreSet::insertStore(Addr store_PC, InstSeqNum store_seq_num, ThreadID tid)
 
         storeList[store_seq_num] = store_SSID;
 
-        DPRINTF(StoreSet, "Store %#x updated the LFST, SSID: %i\n",
-                store_PC, store_SSID);
+        DPRINTF(StoreSet, "Store(PC=%#x,seqNum=%lu) "
+                "updated the LFST, SSID: %i\n",
+                store_PC, store_seq_num, store_SSID);
     }
 }
 
@@ -272,7 +275,14 @@ StoreSet::checkInst(const DynInstPtr &inst,
         } else {
             DPRINTF(StoreSet, "Inst %#x with index %i and SSID %i had LFST "
                     "inum of %i\n", PC, index, inst_SSID, LFST[inst_SSID]);
-            producing_stores.push_back(LFST[inst_SSID]);
+            auto producing_store = LFST[inst_SSID];
+            const char *instType = inst->isLoad() ? "load" : "store";
+            DPRINTF(StoreSet,
+                    "Predicting %s(PC=%#x,seqNum=%lu) depends on "
+                    "inst(seqNum=%lu)\n",
+                    instType, inst->pcState().instAddr(),
+                    inst->seqNum, producing_store);
+            producing_stores.push_back(producing_store);
             return;
         }
     }

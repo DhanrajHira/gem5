@@ -285,6 +285,10 @@ class CircularQueue
             return *this;
         }
 
+        CircularQueue<T> *inner() {
+            return _cq;
+        }
+
         /**
          * Addition operator.
          *

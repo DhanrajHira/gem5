@@ -66,7 +66,7 @@ StoreVector::init(uint64_t clear_period,
     SVTVectorSize = store_queue_size;
     SVT.reserve(SVTSize);
     for (auto i = 0; i < load_queue_size; i++)
-        SVT.push_back(std::vector<char>(store_queue_size));
+        SVT.push_back(std::vector<bool>(store_queue_size));
     memOpsPred = 0;
 }
 
@@ -92,7 +92,7 @@ StoreVector::violation(DynInstPtr store, DynInstPtr violating_load,
     if (violating_store_offset >= SVTVectorSize)
         fatal("violating_store_offset >= SVTVectorSize");
     auto &store_vector = SVT[SV_index];
-    store_vector[violating_store_offset] = 1;
+    store_vector[violating_store_offset] = true;
     // DPRINTF(StoreVector, "Bit %lu @ %p in SV set to %d\n",
     //         violating_store_offset, &store_vector[violating_store_offset],
     //         store_vector[violating_store_offset]);
@@ -203,9 +203,9 @@ StoreVector::squash(InstSeqNum squashed_num, ThreadID tid)
 void
 StoreVector::clear()
 {
-    for (std::vector<char> &SV : SVT)
+    for (std::vector<bool> &SV : SVT)
         for (int i = 0; i < SVTVectorSize; ++i)
-            SV[i] = 0;
+            SV[i] = false;
 }
 
 void

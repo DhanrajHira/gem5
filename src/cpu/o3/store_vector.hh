@@ -106,7 +106,7 @@ class StoreVector
   private:
     size_t getSVIdx(Addr load_PC);
 
-    std::vector<std::vector<char>> SVT;
+    std::vector<std::vector<bool>> SVT;
 
     /** Number of loads/stores to process before wiping predictor so all
      * entries don't get saturated

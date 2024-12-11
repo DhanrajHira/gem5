@@ -81,7 +81,7 @@ StoreVector::violation(DynInstPtr store, DynInstPtr violating_load,
 {
     assert(store->isStore());
     auto violating_store_offset = violating_load->sqIdx - store->sqIdx;
-    assert(violating_store_offset);
+    assert(violating_store_offset >= 0);
     auto store_PC = store->pcState().instAddr();
     auto load_PC = violating_load->pcState().instAddr();
     auto SV_index = getSVIdx(load_PC);
@@ -128,7 +128,6 @@ StoreVector::insertStore(Addr store_PC, InstSeqNum store_seq_num, ThreadID tid)
     // Do nothing
     DPRINTF(StoreVector, "Saw store(PC=%#x,seqNum=%lu) on thread=%d\n",
             store_PC, store_seq_num, tid);
-    stores.push_back({store_PC, store_seq_num});
 }
 
 void

@@ -64,6 +64,8 @@ class StoreWaitTable
     /** Default destructor. */
     ~StoreWaitTable();
 
+    size_t getIdx(Addr load_PC);
+
     /** Initializes the store set predictor with the given table sizes. */
     void init(uint64_t clear_period, int SSIT_size, int LFST_size);
 
@@ -113,12 +115,14 @@ class StoreWaitTable
 
     using SeqNumMapIt = decltype(unissued_stores)::iterator;
 
-    std::set<Addr> known_violating_loads;
+    std::vector<bool> known_violating_loads;
 
     /** Number of loads/stores to process before wiping predictor so all
      * entries don't get saturated
      */
     uint64_t clearPeriod;
+
+    uint64_t SWTSize;
 
     /** Number of memory operations predicted since last clear of predictor */
     int memOpsPred;

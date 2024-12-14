@@ -18,8 +18,7 @@ StoreWaitTable::StoreWaitTable(uint64_t clear_period,
     : clearPeriod(clear_period)
 {
     DPRINTF(StoreWaitTable, "StoreWaitTable: Creating store set object.\n");
-
-    memOpsPred = 0;
+    init(clear_period, _SSIT_size, _LFST_size);
 }
 
 StoreWaitTable::~StoreWaitTable()
@@ -29,11 +28,16 @@ StoreWaitTable::~StoreWaitTable()
 void
 StoreWaitTable::init(uint64_t clear_period, int _SSIT_size, int _LFST_size)
 {
-    clearPeriod = clear_period;
-
     DPRINTF(StoreWaitTable, "StoreWaitTable: Creating store set object.\n");
-
+    clearPeriod = clear_period;
+    SWTSize = _SSIT_size;
     memOpsPred = 0;
+    known_violating_loads = std::vector<bool>(SWTSize);
+}
+
+
+size_t StoreWaitTable::getIdx(Addr load_PC) {
+    return load_PC & (SWTSize - 1);
 }
 
 
@@ -44,7 +48,8 @@ StoreWaitTable::violation(Addr store_PC, Addr load_PC)
     // with all the older stores.
     DPRINTF(StoreWaitTable, "load(PC=%#x) violated store(PC=%#x)\n",
             load_PC, store_PC);
-    known_violating_loads.insert(load_PC);
+    auto idx = getIdx(load_PC);
+    known_violating_loads[idx] = true;
 }
 
 void
@@ -82,9 +87,9 @@ void StoreWaitTable::checkInst(const DynInstPtr &inst,
     if (!inst->isLoad())
         return;
 
+    size_t idx = getIdx(inst->pcState().instAddr());
     // This is not a known violator.
-    if (known_violating_loads.find(inst->pcState().instAddr())
-            == known_violating_loads.end())
+    if (!known_violating_loads[idx])
         return;
 
     InstSeqNum load_seq_num = inst->seqNum;
@@ -119,8 +124,8 @@ StoreWaitTable::squash(InstSeqNum squashed_num, ThreadID tid)
 void
 StoreWaitTable::clear()
 {
-    known_violating_loads.clear();
-    unissued_stores.clear();
+    for (size_t i = 0; i < SWTSize; ++i)
+        known_violating_loads[i] = false;
 }
 
 void

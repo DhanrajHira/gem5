@@ -1,0 +1,7 @@
+Import("*")
+
+SimObject("MemoryDependencePredictor.py", sim_objects=["MemoryDependencePredictor", "StoreSetMDP"])
+
+Source("memory_dependence_predictor.cc")
+Source("store_set.cc")
+

@@ -30,13 +30,13 @@ public:
    * parameter.
    */
   virtual void checkInst(const DynInstPtr &inst,
-                               std::vector<InstSeqNum> &producing_stores) = 0;
+                         std::vector<InstSeqNum> &producing_stores) = 0;
 
   /** Records this instruction as issued. */
   virtual void issued(const DynInstPtr &issued) = 0;
 
   /** Squashes until the given sequence number. */
-  virtual void squash(InstSeqNum squashed_num) = 0;
+  virtual void squash(InstSeqNum squashed_num, ThreadID tid) = 0;
 
   /** Resets all tables. */
   virtual void clear() = 0;

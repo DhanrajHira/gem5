@@ -54,3 +54,10 @@ class StoreVectorMDP(MemoryDependencePredictor):
             Parent.SQEntries, "Size of the store queue, this should not be set directly but instead should be read from the parent."
     )
 
+class NaiveMDP(MemoryDependencePredictor):
+    type = "NaiveMDP"
+    cxx_header = "cpu/o3/mdp/naive_mdp.hh"
+    cxx_class = "gem5::o3::NaiveMDP"
+
+    optimistic = Param.Bool(True, "Should be optimistic?")
+

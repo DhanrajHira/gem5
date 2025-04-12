@@ -4,10 +4,14 @@ SimObject("MemoryDependencePredictor.py",
           sim_objects=["MemoryDependencePredictor",
                        "StoreSetMDP",
                        "StoreVectorMDP",
+                       "NaiveMDP",
                        ]
+)
 
 Source("memory_dependence_predictor.cc")
 Source("store_set.cc")
 Source("store_vector.cc")
+Source("naive_mdp.cc")
+
 DebugFlag("MDP")
 

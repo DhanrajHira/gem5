@@ -52,7 +52,7 @@
 #include "cpu/o3/dyn_inst_ptr.hh"
 #include "cpu/o3/limits.hh"
 #include "cpu/o3/store_set.hh"
-#include "debug/MemDepUnit.hh"
+#include "cpu/o3/mdp/memory_dependence_predictor.hh"
 
 namespace gem5
 {
@@ -241,7 +241,7 @@ class MemDepUnit
      *  this unit what instruction the newly added instruction is dependent
      *  upon.
      */
-    StoreSet depPred;
+    MemoryDependencePredictor *memDepPredictor;
 
     /** Sequence numbers of outstanding load barriers. */
     std::unordered_set<InstSeqNum> loadBarrierSNs;

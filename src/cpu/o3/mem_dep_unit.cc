@@ -32,6 +32,7 @@
 
 #include "base/compiler.hh"
 #include "base/debug.hh"
+#include "cpu/inst_seq.hh"
 #include "cpu/o3/dyn_inst.hh"
 #include "cpu/o3/inst_queue.hh"
 #include "cpu/o3/limits.hh"
@@ -55,9 +56,7 @@ MemDepUnit::MemDepUnit() : iqPtr(NULL), stats(nullptr) {}
 
 MemDepUnit::MemDepUnit(const BaseO3CPUParams &params)
     : _name(params.name + ".memdepunit"),
-      depPred(_name + ".storesets", params.store_set_clear_period,
-              params.SSITSize, params.SSITAssoc, params.SSITReplPolicy,
-              params.SSITIndexingPolicy, params.LFSTSize),
+      memDepPredictor(params.memoryDependencePredictor),
       iqPtr(NULL),
       stats(nullptr)
 {
@@ -92,14 +91,11 @@ void
 MemDepUnit::init(const BaseO3CPUParams &params, ThreadID tid, CPU *cpu)
 {
     _name = csprintf("%s.memDep%d", params.name, tid);
+    memDepPredictor = params.memoryDependencePredictor;
 
     DPRINTF(MemDepUnit, "Creating MemDepUnit %i object.\n",tid);
 
     id = tid;
-
-    depPred.init(params.store_set_clear_period,
-                 params.SSITSize, params.SSITAssoc, params.SSITReplPolicy,
-                 params.SSITIndexingPolicy, params.LFSTSize);
 
     std::string stats_group_name = csprintf("MemDepUnit__%i", tid);
     cpu->addStatGroup(stats_group_name.c_str(), &stats);
@@ -147,7 +143,7 @@ MemDepUnit::takeOverFrom()
     // Be sure to reset all state.
     loadBarrierSNs.clear();
     storeBarrierSNs.clear();
-    depPred.clear();
+    memDepPredictor->clear();
 }
 
 void
@@ -222,9 +218,7 @@ MemDepUnit::insert(const DynInstPtr &inst)
                                 std::begin(storeBarrierSNs),
                                 std::end(storeBarrierSNs));
     } else {
-        InstSeqNum dep = depPred.checkInst(inst->pcState().instAddr());
-        if (dep != 0)
-            producing_stores.push_back(dep);
+        memDepPredictor->checkInst(inst, producing_stores);
     }
 
     std::vector<MemDepEntryPtr> store_entries;
@@ -288,8 +282,7 @@ MemDepUnit::insert(const DynInstPtr &inst)
         DPRINTF(MemDepUnit, "Inserting store/atomic PC %s [sn:%lli].\n",
                 inst->pcState(), inst->seqNum);
 
-        depPred.insertStore(inst->pcState().instAddr(), inst->seqNum,
-                inst->threadNumber);
+        memDepPredictor->insertStore(inst);
 
         ++stats.insertedStores;
     } else if (inst->isLoad()) {
@@ -310,8 +303,7 @@ MemDepUnit::insertNonSpec(const DynInstPtr &inst)
         DPRINTF(MemDepUnit, "Inserting store/atomic PC %s [sn:%lli].\n",
                 inst->pcState(), inst->seqNum);
 
-        depPred.insertStore(inst->pcState().instAddr(), inst->seqNum,
-                inst->threadNumber);
+        memDepPredictor->insertStore(inst);
 
         ++stats.insertedStores;
     } else if (inst->isLoad()) {
@@ -566,7 +558,7 @@ MemDepUnit::squash(const InstSeqNum &squashed_num, ThreadID tid)
     }
 
     // Tell the dependency predictor to squash as well.
-    depPred.squash(squashed_num, tid);
+    memDepPredictor->squash(squashed_num, tid);
 }
 
 void
@@ -577,8 +569,7 @@ MemDepUnit::violation(const DynInstPtr &store_inst,
             " load: %#x, store: %#x\n", violating_load->pcState().instAddr(),
             store_inst->pcState().instAddr());
     // Tell the memory dependence unit of the violation.
-    depPred.violation(store_inst->pcState().instAddr(),
-            violating_load->pcState().instAddr());
+    memDepPredictor->violation(store_inst, violating_load);
 }
 
 void
@@ -587,7 +578,7 @@ MemDepUnit::issue(const DynInstPtr &inst)
     DPRINTF(MemDepUnit, "Issuing instruction PC %#x [sn:%lli].\n",
             inst->pcState().instAddr(), inst->seqNum);
 
-    depPred.issued(inst->pcState().instAddr(), inst->seqNum, inst->isStore());
+    memDepPredictor->issued(inst);
 }
 
 MemDepUnit::MemDepEntryPtr &

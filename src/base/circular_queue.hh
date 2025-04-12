@@ -384,6 +384,8 @@ class CircularQueue
          * OutputIterator has no extra requirements.
          */
         size_t idx() const { return _idx; }
+
+        const CircularQueue* getCircularQueue() const { return _cq; }
     };
 
   public:

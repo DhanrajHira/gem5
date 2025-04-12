@@ -37,4 +37,20 @@ class StoreSetMDP(MemoryDependencePredictor):
         "SSIT indexing policy",
     )
 
+class StoreVectorMDP(MemoryDependencePredictor):
+    type = "StoreVectorMDP"
+    cxx_header = "cpu/o3/mdp/store_vector.hh"
+    cxx_class = "gem5::o3::StoreVectorMDP"
+
+    clearPeriod = Param.Unsigned(
+        250000,
+        "Number of load/store insts before the dep predictor "
+        "should be invalidated",
+    )
+
+    SVTSize = Param.Unsigned(128, "Size of the Store Vector Table")
+    SVTVectorSize = Param.Unsigned(16, "Size of the Store Vectors")
+    SQSize = Param.Unsigned(
+            Parent.SQEntries, "Size of the store queue, this should not be set directly but instead should be read from the parent."
+    )
 
